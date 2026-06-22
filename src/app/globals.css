@@ -128,3 +128,101 @@
     @apply font-sans;
   }
 }
+
+/* ============================================================
+   HumanCaptcha design language — dark glassmorphism
+   ============================================================ */
+
+:root {
+  --hc-cyan: #00dbe9;
+  --hc-cyan-soft: rgba(0, 219, 233, 0.5);
+  --hc-purple: #a855f7;
+  --hc-bg: #06070e;
+}
+
+/* Force the dark, deep-space background regardless of token theme. */
+html.dark,
+html.dark body {
+  background-color: var(--hc-bg);
+  color: #e7e9f2;
+  color-scheme: dark;
+}
+
+/* Subtle blueprint grid background. */
+.bg-grid {
+  background-image:
+    linear-gradient(to right, rgba(255, 255, 255, 0.045) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.045) 1px, transparent 1px);
+  background-size: 52px 52px;
+}
+
+/* Glassmorphism cards. */
+.glass {
+  background: rgba(255, 255, 255, 0.04);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+.glass-strong {
+  background: rgba(15, 18, 30, 0.72);
+  backdrop-filter: blur(22px);
+  -webkit-backdrop-filter: blur(22px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Cyan→purple gradient text. */
+.text-gradient {
+  background: linear-gradient(120deg, #ffffff 0%, var(--hc-cyan) 55%, var(--hc-purple) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Accent glows. */
+.glow-cyan {
+  box-shadow: 0 0 48px -10px var(--hc-cyan-soft);
+}
+.glow-ring {
+  box-shadow:
+    0 0 0 1px rgba(0, 219, 233, 0.4),
+    0 0 40px -8px var(--hc-cyan-soft);
+}
+
+@keyframes hc-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-14px);
+  }
+}
+.animate-float {
+  animation: hc-float 7s ease-in-out infinite;
+}
+
+@keyframes hc-pulse-ring {
+  0% {
+    transform: scale(0.85);
+    opacity: 0.7;
+  }
+  100% {
+    transform: scale(2.2);
+    opacity: 0;
+  }
+}
+.animate-pulse-ring {
+  animation: hc-pulse-ring 2.4s ease-out infinite;
+}
+
+@keyframes hc-scan {
+  0% {
+    top: 0%;
+  }
+  100% {
+    top: 100%;
+  }
+}
+.animate-scan {
+  animation: hc-scan 2.6s linear infinite;
+}

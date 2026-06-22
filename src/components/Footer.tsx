@@ -1,13 +1,14 @@
+import Link from "next/link";
 import { ScanFace } from "lucide-react";
 
 import { GithubIcon } from "@/components/site/icons";
 import { GITHUB_REPO_URL } from "@/constants";
 
 const LINKS = [
-  { label: "Privacy", href: "#" },
-  { label: "Terms", href: "#" },
-  { label: "Status", href: "#" },
-  { label: "Docs", href: "#developers" },
+  { label: "Privacy", href: "/privacy" },
+  { label: "Terms", href: "/terms" },
+  { label: "Status", href: "/status" },
+  { label: "Docs", href: "/#developers" },
 ];
 
 export function Footer() {
@@ -32,13 +33,13 @@ export function Footer() {
 
           <nav className="flex flex-wrap items-center gap-6">
             {LINKS.map((link) => (
-              <a
+              <Link
                 key={link.label}
                 href={link.href}
                 className="text-sm text-zinc-400 transition-colors hover:text-white"
               >
                 {link.label}
-              </a>
+              </Link>
             ))}
             <a
               href={GITHUB_REPO_URL}
@@ -57,10 +58,13 @@ export function Footer() {
           <p className="text-xs text-zinc-500">
             © {new Date().getFullYear()} HumanCaptcha. All rights reserved.
           </p>
-          <p className="flex items-center gap-1.5 text-xs text-zinc-500">
+          <Link
+            href="/status"
+            className="flex items-center gap-1.5 text-xs text-zinc-500 transition-colors hover:text-zinc-300"
+          >
             <span className="h-1.5 w-1.5 rounded-full bg-green-400" />
             All systems operational
-          </p>
+          </Link>
         </div>
       </div>
     </footer>

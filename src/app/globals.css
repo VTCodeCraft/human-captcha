@@ -126,6 +126,17 @@
   }
   html {
     @apply font-sans;
+    /* Smooth in-page scrolling for #anchor navigation and programmatic scrolls. */
+    scroll-behavior: smooth;
+    /* Offset anchor targets so they aren't hidden behind the fixed h-16 (4rem) navbar. */
+    scroll-padding-top: 5rem;
+  }
+
+  /* Honor users who prefer reduced motion. */
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
   }
 }
 

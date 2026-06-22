@@ -3,11 +3,13 @@
 import { useEffect, useRef } from "react";
 import { HandLandmarker } from "@mediapipe/tasks-vision";
 
-import { useHandTracking } from "@/hooks/useHandTracking";
+import type { MultiHandLandmarks } from "@/types/hand";
 
 interface HandLandmarksProps {
-  /** Ref to the video element whose frames should be tracked. */
+  /** Ref to the video element, used to size the canvas to the feed. */
   videoRef: React.RefObject<HTMLVideoElement | null>;
+  /** Landmarks for every detected hand, supplied by the parent's tracker. */
+  landmarks: MultiHandLandmarks;
 }
 
 const LANDMARK_RADIUS = 4;
@@ -24,9 +26,8 @@ const CONNECTION_COLOR = "#f8fafc"; // slate-50
  * it; its internal resolution is kept in sync with the video's intrinsic
  * dimensions so landmark coordinates (normalized 0..1) map cleanly to pixels.
  */
-export function HandLandmarks({ videoRef }: HandLandmarksProps) {
+export function HandLandmarks({ videoRef, landmarks }: HandLandmarksProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const { landmarks } = useHandTracking(videoRef);
 
   useEffect(() => {
     const canvas = canvasRef.current;

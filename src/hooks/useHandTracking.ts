@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import type { HandLandmarker } from "@mediapipe/tasks-vision";
 
 import { getHandLandmarker } from "@/lib/mediapipe";
-import type { MultiHandLandmarks } from "@/types/hand";
+import type { MultiHandHandedness, MultiHandLandmarks } from "@/types/hand";
 
 export interface UseHandTrackingResult {
   /**
@@ -12,6 +12,11 @@ export interface UseHandTrackingResult {
    * hand is visible; each entry holds that hand's 21 landmarks.
    */
   landmarks: MultiHandLandmarks;
+  /**
+   * Handedness ("Left"/"Right") for every detected hand, aligned by index
+   * with {@link landmarks}.
+   */
+  handedness: MultiHandHandedness;
   /** True once the HandLandmarker model has loaded and detection is running. */
   isReady: boolean;
 }
@@ -28,6 +33,7 @@ export function useHandTracking(
   videoRef: React.RefObject<HTMLVideoElement | null>,
 ): UseHandTrackingResult {
   const [landmarks, setLandmarks] = useState<MultiHandLandmarks>([]);
+  const [handedness, setHandedness] = useState<MultiHandHandedness>([]);
   const [isReady, setIsReady] = useState(false);
 
   const landmarkerRef = useRef<HandLandmarker | null>(null);
@@ -56,6 +62,7 @@ export function useHandTracking(
 
       const result = landmarker.detectForVideo(video, performance.now());
       setLandmarks(result.landmarks);
+      setHandedness(result.handedness);
     }
 
     getHandLandmarker()
@@ -81,5 +88,5 @@ export function useHandTracking(
     };
   }, [videoRef]);
 
-  return { landmarks, isReady };
+  return { landmarks, handedness, isReady };
 }

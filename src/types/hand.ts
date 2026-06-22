@@ -1,4 +1,4 @@
-import type { NormalizedLandmark } from "@mediapipe/tasks-vision";
+import type { Category, NormalizedLandmark } from "@mediapipe/tasks-vision";
 
 /**
  * A single hand landmark in normalized image space.
@@ -17,5 +17,15 @@ export type HandLandmarks = HandLandmark[];
 /** Landmarks for every hand detected in a single frame (0..numHands hands). */
 export type MultiHandLandmarks = HandLandmarks[];
 
+/**
+ * Handedness classification for every detected hand, aligned by index with
+ * {@link MultiHandLandmarks}. Each entry is a list of `Category` objects whose
+ * `categoryName` is "Left" or "Right".
+ */
+export type MultiHandHandedness = Category[][];
+
 /** The fixed number of landmarks MediaPipe reports per hand. */
 export const HAND_LANDMARK_COUNT = 21 as const;
+
+/** Index of the index-finger tip within a hand's landmark array. */
+export const INDEX_FINGER_TIP = 8 as const;

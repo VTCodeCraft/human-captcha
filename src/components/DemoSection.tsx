@@ -27,7 +27,7 @@ export function DemoSection() {
         {...fadeUp(0.1)}
         className="mt-14 flex flex-col items-center"
       >
-        <div className="relative">
+        <div className="relative w-full max-w-sm">
           <div className="absolute -inset-8 -z-10 rounded-full bg-gradient-to-tr from-[#00dbe9]/15 to-[#a855f7]/15 blur-3xl" />
           <HumanCheckbox
             verified={verified}

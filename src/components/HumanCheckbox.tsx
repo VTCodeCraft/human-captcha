@@ -48,14 +48,16 @@ export function HumanCheckbox({ verified, onActivate }: HumanCheckboxProps) {
         </span>
       </button>
 
-      <div className="flex items-center justify-between border-t border-white/10 bg-white/[0.02] px-5 py-2.5">
-        <span className="flex items-center gap-1.5 text-[11px] text-zinc-500">
+      <div className="flex items-center justify-between gap-3 border-t border-white/10 bg-white/[0.02] px-5 py-2.5">
+        <span className="flex items-center gap-1.5 whitespace-nowrap text-[11px] text-zinc-500">
           <span className="flex h-4 w-4 items-center justify-center rounded bg-gradient-to-br from-[#00dbe9] to-[#a855f7] text-black">
             <ScanFace className="h-2.5 w-2.5" />
           </span>
           Protected by HumanCaptcha
         </span>
-        <span className="text-[10px] text-zinc-600">Privacy · Terms</span>
+        <span className="whitespace-nowrap text-[10px] text-zinc-600">
+          Privacy · Terms
+        </span>
       </div>
     </div>
   );

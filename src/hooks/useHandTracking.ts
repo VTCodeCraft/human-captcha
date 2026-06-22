@@ -6,6 +6,37 @@ import type { HandLandmarker } from "@mediapipe/tasks-vision";
 import { getHandLandmarker } from "@/lib/mediapipe";
 import type { MultiHandHandedness, MultiHandLandmarks } from "@/types/hand";
 
+/** True if two frames of landmarks differ (hand count or any coordinate). */
+function landmarksChanged(
+  a: MultiHandLandmarks,
+  b: MultiHandLandmarks,
+): boolean {
+  if (a.length !== b.length) return true;
+  for (let h = 0; h < a.length; h++) {
+    const ah = a[h];
+    const bh = b[h];
+    if (!ah || !bh || ah.length !== bh.length) return true;
+    for (let i = 0; i < ah.length; i++) {
+      if (ah[i].x !== bh[i].x || ah[i].y !== bh[i].y || ah[i].z !== bh[i].z) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+/** True if the per-hand handedness labels differ between two frames. */
+function handednessChanged(
+  a: MultiHandHandedness,
+  b: MultiHandHandedness,
+): boolean {
+  if (a.length !== b.length) return true;
+  for (let i = 0; i < a.length; i++) {
+    if (a[i]?.[0]?.categoryName !== b[i]?.[0]?.categoryName) return true;
+  }
+  return false;
+}
+
 export interface UseHandTrackingResult {
   /**
    * Landmarks for every hand currently detected (up to two). Empty when no
@@ -61,8 +92,15 @@ export function useHandTracking(
       lastVideoTimeRef.current = video.currentTime;
 
       const result = landmarker.detectForVideo(video, performance.now());
-      setLandmarks(result.landmarks);
-      setHandedness(result.handedness);
+      // Only update state when the data actually changed; otherwise we'd push a
+      // fresh array reference every frame (even with no hands), re-rendering the
+      // whole tracking pipeline 60×/s and tripping React's update-depth guard.
+      setLandmarks((prev) =>
+        landmarksChanged(prev, result.landmarks) ? result.landmarks : prev,
+      );
+      setHandedness((prev) =>
+        handednessChanged(prev, result.handedness) ? result.handedness : prev,
+      );
     }
 
     getHandLandmarker()

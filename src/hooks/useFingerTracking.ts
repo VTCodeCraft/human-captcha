@@ -84,7 +84,20 @@ export function useFingerTracking(
       if (!seen.has(key)) prevRef.current.delete(key);
     }
 
-    setPositions(next);
+    setPositions((prev) => {
+      // Skip the update when nothing meaningfully changed, so a still/absent
+      // hand doesn't re-render every frame.
+      if (
+        prev.length === next.length &&
+        prev.every((p, i) => {
+          const n = next[i];
+          return n && p.id === n.id && p.x === n.x && p.y === n.y;
+        })
+      ) {
+        return prev;
+      }
+      return next;
+    });
   }, [landmarks, handedness, width, height, landmarkIndex]);
 
   return positions;

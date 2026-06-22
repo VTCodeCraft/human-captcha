@@ -10,19 +10,20 @@ import { SelectionBox } from "@/components/SelectionBox";
 import { useCamera } from "@/hooks/useCamera";
 import { useFingerTracking } from "@/hooks/useFingerTracking";
 import { useHandTracking } from "@/hooks/useHandTracking";
-import { usePinchDetection } from "@/hooks/usePinchDetection";
+import { useFistDetection } from "@/hooks/useFistDetection";
 import { usePuzzle } from "@/hooks/usePuzzle";
 import { useRegionSelection } from "@/hooks/useRegionSelection";
 import { PUZZLE_SIZE } from "@/lib/sliceImage";
 import { useCaptchaStore } from "@/store/captchaStore";
 import { CaptchaState } from "@/types/captcha";
+import { MIDDLE_FINGER_MCP } from "@/types/hand";
 import type { Tile } from "@/types/puzzle";
 
 const STATUS_TEXT: Partial<Record<CaptchaState, string>> = {
   [CaptchaState.CAMERA]: "Raise both index fingers to frame an area",
   [CaptchaState.SELECTING_REGION]: "Hold the frame steady to capture",
   [CaptchaState.PUZZLE_READY]: "Get ready…",
-  [CaptchaState.TRACKING]: "Pinch to grab a piece, move it, release to drop",
+  [CaptchaState.TRACKING]: "Make a fist to grab a piece, open your hand to drop",
 };
 
 const clamp = (v: number, min: number, max: number) =>
@@ -61,9 +62,17 @@ export function CameraFeed() {
 
   // Tracking + interaction.
   const selection = useRegionSelection(landmarks, handedness);
-  const fingers = useFingerTracking(landmarks, handedness, size.width, size.height);
+  // Anchor the cursor to the palm (middle-finger MCP) so it stays put when the
+  // hand opens/closes into a fist.
+  const fingers = useFingerTracking(
+    landmarks,
+    handedness,
+    size.width,
+    size.height,
+    MIDDLE_FINGER_MCP,
+  );
   const rightFinger = fingers.find((f) => f.id === "Right") ?? null;
-  const pinch = usePinchDetection(landmarks, handedness, "Right");
+  const fist = useFistDetection(landmarks, handedness, "Right");
   const { capture, grab, drop } = usePuzzle();
 
   // Cursor in board pixels, mirrored to match the flipped (selfie) feed.
@@ -134,17 +143,17 @@ export function CameraFeed() {
     return () => clearTimeout(timer);
   }, [state, setState]);
 
-  // Pinch edges → grab / drop, then validate.
-  const prevPinchRef = useRef(false);
+  // Fist edges → grab / drop, then validate.
+  const prevFistRef = useRef(false);
   useEffect(() => {
     if (state !== CaptchaState.TRACKING) {
-      prevPinchRef.current = false;
+      prevFistRef.current = false;
       return;
     }
-    const was = prevPinchRef.current;
-    const now = pinch.isPinching;
+    const was = prevFistRef.current;
+    const now = fist.isFist;
     if (now === was) return;
-    prevPinchRef.current = now;
+    prevFistRef.current = now;
 
     const current = slotRef.current;
     if (current === null) return;
@@ -156,7 +165,7 @@ export function CameraFeed() {
       drop(current);
       if (wasDragging) setState(CaptchaState.VALIDATING);
     }
-  }, [state, pinch.isPinching, grab, drop, setState]);
+  }, [state, fist.isFist, grab, drop, setState]);
 
   // VALIDATING: solved → SUCCESS, otherwise keep solving.
   useEffect(() => {
@@ -220,7 +229,7 @@ export function CameraFeed() {
             x={cursor.x}
             y={cursor.y}
             visible
-            active={pinch.isPinching}
+            active={fist.isFist}
           />
         )}
 

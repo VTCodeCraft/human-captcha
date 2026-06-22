@@ -40,6 +40,7 @@ export function useFingerTracking(
   handedness: MultiHandHandedness,
   width: number,
   height: number,
+  landmarkIndex: number = INDEX_FINGER_TIP,
 ): FingerPosition[] {
   const [positions, setPositions] = useState<FingerPosition[]>([]);
 
@@ -57,8 +58,8 @@ export function useFingerTracking(
     const seen = new Set<string>();
 
     for (let i = 0; i < landmarks.length; i++) {
-      const fingertip = landmarks[i]?.[INDEX_FINGER_TIP];
-      if (!fingertip) continue;
+      const point = landmarks[i]?.[landmarkIndex];
+      if (!point) continue;
 
       // Prefer the handedness label as a stable key; fall back to the slot
       // index, and disambiguate if two hands somehow share a label.
@@ -67,8 +68,8 @@ export function useFingerTracking(
       if (seen.has(id)) id = `${label}-${i}`;
       seen.add(id);
 
-      const targetX = fingertip.x * width;
-      const targetY = fingertip.y * height;
+      const targetX = point.x * width;
+      const targetY = point.y * height;
 
       const prev = prevRef.current.get(id);
       const x = prev ? prev.x + (targetX - prev.x) * SMOOTHING_FACTOR : targetX;
@@ -84,7 +85,7 @@ export function useFingerTracking(
     }
 
     setPositions(next);
-  }, [landmarks, handedness, width, height]);
+  }, [landmarks, handedness, width, height, landmarkIndex]);
 
   return positions;
 }

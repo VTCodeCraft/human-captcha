@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState } from "react";
 
 import { CapturedImage } from "@/components/CapturedImage";
-import { ChallengeCard } from "@/components/ChallengeCard";
 import { FingerCursor } from "@/components/FingerCursor";
 import { HandLandmarks } from "@/components/HandLandmarks";
 import { PuzzleBoard } from "@/components/PuzzleBoard";
@@ -11,34 +10,35 @@ import { SelectionBox } from "@/components/SelectionBox";
 import { useCamera } from "@/hooks/useCamera";
 import { useFingerTracking } from "@/hooks/useFingerTracking";
 import { useHandTracking } from "@/hooks/useHandTracking";
+import { usePinchDetection } from "@/hooks/usePinchDetection";
 import { usePuzzle } from "@/hooks/usePuzzle";
 import { useRegionSelection } from "@/hooks/useRegionSelection";
-import { validatePath } from "@/lib/validatePath";
+import { PUZZLE_SIZE } from "@/lib/sliceImage";
 import { useCaptchaStore } from "@/store/captchaStore";
 import { CaptchaState } from "@/types/captcha";
+import type { Tile } from "@/types/puzzle";
 
-/** Per-state instruction text shown above/over the feed. */
 const STATUS_TEXT: Partial<Record<CaptchaState, string>> = {
-  [CaptchaState.CAMERA]: "Raise both index fingers to begin",
-  [CaptchaState.SELECTING_REGION]:
-    "Frame an area with both index fingers, then hold still",
-  [CaptchaState.CAPTURING]: "Captured!",
+  [CaptchaState.CAMERA]: "Raise both index fingers to frame an area",
+  [CaptchaState.SELECTING_REGION]: "Hold the frame steady to capture",
   [CaptchaState.PUZZLE_READY]: "Get ready…",
+  [CaptchaState.TRACKING]: "Pinch to grab a piece, move it, release to drop",
 };
 
-/**
- * Orchestrates the whole HumanCaptcha flow. Hand tracking runs once here and
- * drives a state machine: camera → region selection → capture → puzzle →
- * finger-traced challenge → validation → success/fail.
- */
+const clamp = (v: number, min: number, max: number) =>
+  Math.min(max, Math.max(min, v));
+
+/** True when every piece sits in its correct slot. */
+function isPuzzleSolved(tiles: Tile[]): boolean {
+  return tiles.length > 0 && tiles.every((t, i) => t.correctIndex === i);
+}
+
 export function CameraFeed() {
   const { videoRef, isLoading, error } = useCamera();
   const { landmarks, handedness } = useHandTracking(videoRef);
 
-  // Displayed size of the feed/board, used to map normalized coords to pixels.
   const containerRef = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ width: 0, height: 0 });
-
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
@@ -50,31 +50,44 @@ export function CameraFeed() {
     return () => observer.disconnect();
   }, []);
 
-  // Store state machine + data.
+  // Store.
   const state = useCaptchaStore((s) => s.state);
   const setState = useCaptchaStore((s) => s.setState);
   const setRegion = useCaptchaStore((s) => s.setRegion);
   const capturedImage = useCaptchaStore((s) => s.capturedImage);
   const shuffledTiles = useCaptchaStore((s) => s.shuffledTiles);
-  const challenge = useCaptchaStore((s) => s.challenge);
-  const visitedTiles = useCaptchaStore((s) => s.visitedTiles);
+  const draggingSlot = useCaptchaStore((s) => s.draggingSlot);
   const reset = useCaptchaStore((s) => s.reset);
 
-  // Derived tracking.
+  // Tracking + interaction.
   const selection = useRegionSelection(landmarks, handedness);
-  const fingers = useFingerTracking(
-    landmarks,
-    handedness,
-    size.width,
-    size.height,
-  );
+  const fingers = useFingerTracking(landmarks, handedness, size.width, size.height);
   const rightFinger = fingers.find((f) => f.id === "Right") ?? null;
-  const { currentTile, capture, track } = usePuzzle();
+  const pinch = usePinchDetection(landmarks, handedness, "Right");
+  const { capture, grab, drop } = usePuzzle();
+
+  // Cursor in board pixels, mirrored to match the flipped (selfie) feed.
+  const cursor =
+    state === CaptchaState.TRACKING && rightFinger && size.width > 0
+      ? { x: size.width - rightFinger.x, y: rightFinger.y }
+      : null;
+
+  // Board slot under the cursor.
+  const slot =
+    cursor && size.width > 0 && size.height > 0
+      ? clamp(Math.floor(cursor.y / (size.height / PUZZLE_SIZE)), 0, PUZZLE_SIZE - 1) *
+          PUZZLE_SIZE +
+        clamp(Math.floor(cursor.x / (size.width / PUZZLE_SIZE)), 0, PUZZLE_SIZE - 1)
+      : null;
+  const slotRef = useRef<number | null>(null);
+  useEffect(() => {
+    slotRef.current = slot;
+  }, [slot]);
 
   const hasRegion = selection.region !== null;
   const isStable = selection.isStable;
 
-  // CAMERA ⇄ SELECTING_REGION based on whether two index fingers are present.
+  // CAMERA ⇄ SELECTING_REGION.
   useEffect(() => {
     if (state === CaptchaState.CAMERA && hasRegion) {
       setState(CaptchaState.SELECTING_REGION);
@@ -83,7 +96,7 @@ export function CameraFeed() {
     }
   }, [state, hasRegion, setState]);
 
-  // SELECTING_REGION → CAPTURING once the region holds steady.
+  // SELECTING_REGION → CAPTURING once steady.
   useEffect(() => {
     if (state === CaptchaState.SELECTING_REGION && isStable && selection.region) {
       setRegion(selection.region);
@@ -91,18 +104,16 @@ export function CameraFeed() {
     }
   }, [state, isStable, selection.region, setRegion, setState]);
 
-  // CAPTURING: grab the frame and build the puzzle, then advance.
+  // CAPTURING: grab the frame and build the puzzle.
   useEffect(() => {
     if (state !== CaptchaState.CAPTURING) return;
     let cancelled = false;
-
     const video = videoRef.current;
     const region = useCaptchaStore.getState().region;
     if (!video || !region) {
       setState(CaptchaState.CAMERA);
       return;
     }
-
     capture(video, region)
       .then(() => {
         if (!cancelled) setState(CaptchaState.PUZZLE_READY);
@@ -111,7 +122,6 @@ export function CameraFeed() {
         console.error("Capture/puzzle generation failed:", err);
         if (!cancelled) setState(CaptchaState.CAMERA);
       });
-
     return () => {
       cancelled = true;
     };
@@ -120,41 +130,40 @@ export function CameraFeed() {
   // PUZZLE_READY → TRACKING after a brief look at the shuffled board.
   useEffect(() => {
     if (state !== CaptchaState.PUZZLE_READY) return;
-    const timer = setTimeout(() => setState(CaptchaState.TRACKING), 1800);
+    const timer = setTimeout(() => setState(CaptchaState.TRACKING), 1500);
     return () => clearTimeout(timer);
   }, [state, setState]);
 
-  // TRACKING: feed the cursor position to the tile tracker each frame.
+  // Pinch edges → grab / drop, then validate.
+  const prevPinchRef = useRef(false);
   useEffect(() => {
-    if (state !== CaptchaState.TRACKING) return;
-    if (rightFinger && size.width > 0 && size.height > 0) {
-      track(rightFinger.x / size.width, rightFinger.y / size.height);
+    if (state !== CaptchaState.TRACKING) {
+      prevPinchRef.current = false;
+      return;
+    }
+    const was = prevPinchRef.current;
+    const now = pinch.isPinching;
+    if (now === was) return;
+    prevPinchRef.current = now;
+
+    const current = slotRef.current;
+    if (current === null) return;
+
+    if (now) {
+      grab(current);
     } else {
-      track(null, null);
+      const wasDragging = useCaptchaStore.getState().draggingSlot !== null;
+      drop(current);
+      if (wasDragging) setState(CaptchaState.VALIDATING);
     }
-  }, [state, rightFinger, size.width, size.height, track]);
+  }, [state, pinch.isPinching, grab, drop, setState]);
 
-  // TRACKING → VALIDATING once enough tiles have been traced.
-  useEffect(() => {
-    if (
-      state === CaptchaState.TRACKING &&
-      challenge.length > 0 &&
-      visitedTiles.length >= challenge.length
-    ) {
-      setState(CaptchaState.VALIDATING);
-    }
-  }, [state, visitedTiles, challenge, setState]);
-
-  // VALIDATING → SUCCESS | FAIL.
+  // VALIDATING: solved → SUCCESS, otherwise keep solving.
   useEffect(() => {
     if (state !== CaptchaState.VALIDATING) return;
-    const ok = validatePath(challenge, visitedTiles);
-    const timer = setTimeout(
-      () => setState(ok ? CaptchaState.SUCCESS : CaptchaState.FAIL),
-      400,
-    );
-    return () => clearTimeout(timer);
-  }, [state, challenge, visitedTiles, setState]);
+    const solved = isPuzzleSolved(useCaptchaStore.getState().shuffledTiles);
+    setState(solved ? CaptchaState.SUCCESS : CaptchaState.TRACKING);
+  }, [state, setState]);
 
   const showLandmarks =
     state === CaptchaState.CAMERA || state === CaptchaState.SELECTING_REGION;
@@ -162,38 +171,33 @@ export function CameraFeed() {
     state === CaptchaState.PUZZLE_READY ||
     state === CaptchaState.TRACKING ||
     state === CaptchaState.VALIDATING ||
-    state === CaptchaState.SUCCESS ||
-    state === CaptchaState.FAIL;
-  const showCursor = state === CaptchaState.TRACKING && rightFinger !== null;
+    state === CaptchaState.SUCCESS;
   const statusText = STATUS_TEXT[state];
 
   return (
     <div className="flex w-full max-w-2xl flex-col items-center gap-4">
-      {(state === CaptchaState.TRACKING ||
-        state === CaptchaState.VALIDATING) && (
-        <ChallengeCard challenge={challenge} visited={visitedTiles} />
-      )}
-
       <div
         ref={containerRef}
         className="relative aspect-video w-full overflow-hidden rounded-2xl bg-zinc-900 shadow-lg"
       >
-        {/* Live feed stays mounted (and playing) so detection keeps running. */}
-        <video
-          ref={videoRef}
-          autoPlay
-          muted
-          playsInline
-          className="h-full w-full object-cover"
-        />
+        {/* Mirrored (selfie) layer: video + aligned overlays flip together. */}
+        <div className="absolute inset-0 -scale-x-100">
+          <video
+            ref={videoRef}
+            autoPlay
+            muted
+            playsInline
+            className="h-full w-full object-cover"
+          />
 
-        {showLandmarks && (
-          <HandLandmarks videoRef={videoRef} landmarks={landmarks} />
-        )}
+          {showLandmarks && (
+            <HandLandmarks videoRef={videoRef} landmarks={landmarks} />
+          )}
 
-        {state === CaptchaState.SELECTING_REGION && (
-          <SelectionBox region={selection.region} progress={selection.progress} />
-        )}
+          {state === CaptchaState.SELECTING_REGION && (
+            <SelectionBox region={selection.region} progress={selection.progress} />
+          )}
+        </div>
 
         {state === CaptchaState.CAPTURING && capturedImage && (
           <div className="absolute inset-0 flex items-center justify-center bg-black">
@@ -201,58 +205,51 @@ export function CameraFeed() {
           </div>
         )}
 
-        {showPuzzle && (
+        {showPuzzle && size.width > 0 && (
           <PuzzleBoard
             tiles={shuffledTiles}
-            currentTile={currentTile}
-            visited={visitedTiles}
+            width={size.width}
+            height={size.height}
+            draggingSlot={state === CaptchaState.TRACKING ? draggingSlot : null}
+            cursor={cursor}
           />
         )}
 
-        {showCursor && rightFinger && (
-          <FingerCursor x={rightFinger.x} y={rightFinger.y} visible />
+        {state === CaptchaState.TRACKING && rightFinger && cursor && (
+          <FingerCursor
+            x={cursor.x}
+            y={cursor.y}
+            visible
+            active={pinch.isPinching}
+          />
         )}
 
-        {/* Status banner */}
         {statusText && (
-          <div className="absolute inset-x-0 top-0 flex justify-center p-3">
+          <div className="absolute inset-x-0 top-0 z-30 flex justify-center p-3">
             <span className="rounded-full bg-black/60 px-4 py-1.5 text-sm font-medium text-white">
               {statusText}
             </span>
           </div>
         )}
 
-        {/* Success / fail overlays */}
         {state === CaptchaState.SUCCESS && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/70">
-            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-green-500 text-3xl text-white">
+          <div className="absolute inset-0 z-40 flex flex-col items-center justify-center gap-3 bg-black/75">
+            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-green-500 text-3xl text-white shadow-[0_0_30px_8px_rgba(34,197,94,0.6)]">
               ✓
             </div>
             <p className="text-xl font-semibold text-white">Human Verified</p>
-          </div>
-        )}
-
-        {state === CaptchaState.FAIL && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/70">
-            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-red-500 text-3xl text-white">
-              ✕
-            </div>
-            <p className="text-lg font-semibold text-white">
-              Path didn&apos;t match
-            </p>
             <button
               type="button"
               onClick={reset}
               className="rounded-lg bg-white px-4 py-2 text-sm font-medium text-black hover:bg-zinc-200"
             >
-              Try again
+              Restart
             </button>
           </div>
         )}
 
-        {/* Camera loading / error */}
         {(isLoading || error) && (
-          <div className="absolute inset-0 flex items-center justify-center bg-zinc-900/90 p-6 text-center">
+          <div className="absolute inset-0 z-50 flex items-center justify-center bg-zinc-900/90 p-6 text-center">
             {error ? (
               <p className="text-sm font-medium text-red-400">{error.message}</p>
             ) : (

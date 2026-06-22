@@ -10,23 +10,24 @@ interface CaptchaData {
   region: Region | null;
   /** The frozen frame captured from the region. */
   capturedImage: CapturedImage | null;
-  /** Tiles in solved order. */
+  /** Tiles in solved order (index === correctIndex). */
   tiles: Tile[];
-  /** Tiles in shuffled (display) order. */
+  /** Tiles in their current board order; slot `i` shows `shuffledTiles[i]`. */
   shuffledTiles: Tile[];
-  /** Expected path of tile ids to trace. */
-  challenge: number[];
-  /** Tile ids the cursor has visited, de-duplicated for consecutive repeats. */
-  visitedTiles: number[];
+  /** Board slot of the piece currently grabbed by a pinch, or null. */
+  draggingSlot: number | null;
 }
 
 interface CaptchaActions {
   setState: (state: CaptchaState) => void;
   setRegion: (region: Region | null) => void;
   setCaptured: (image: CapturedImage) => void;
-  setPuzzle: (tiles: Tile[], shuffledTiles: Tile[], challenge: number[]) => void;
-  /** Records a visited tile, ignoring consecutive duplicates. */
-  visitTile: (id: number) => void;
+  setPuzzle: (tiles: Tile[], shuffledTiles: Tile[]) => void;
+  /** Grabs the piece in the given slot (pinch down). */
+  grabSlot: (slot: number) => void;
+  /** Drops the grabbed piece on the given slot, swapping the two (pinch up). */
+  dropSlot: (slot: number) => void;
+  clearDragging: () => void;
   /** Resets everything back to the initial CAMERA state. */
   reset: () => void;
 }
@@ -39,8 +40,7 @@ const initialData: CaptchaData = {
   capturedImage: null,
   tiles: [],
   shuffledTiles: [],
-  challenge: [],
-  visitedTiles: [],
+  draggingSlot: null,
 };
 
 export const useCaptchaStore = create<CaptchaStore>((set) => ({
@@ -52,15 +52,23 @@ export const useCaptchaStore = create<CaptchaStore>((set) => ({
 
   setCaptured: (capturedImage) => set({ capturedImage }),
 
-  setPuzzle: (tiles, shuffledTiles, challenge) =>
-    set({ tiles, shuffledTiles, challenge, visitedTiles: [] }),
+  setPuzzle: (tiles, shuffledTiles) =>
+    set({ tiles, shuffledTiles, draggingSlot: null }),
 
-  visitTile: (id) =>
+  grabSlot: (slot) =>
+    set((state) => (state.shuffledTiles[slot] ? { draggingSlot: slot } : {})),
+
+  dropSlot: (slot) =>
     set((state) => {
-      const last = state.visitedTiles[state.visitedTiles.length - 1];
-      if (last === id) return state; // de-dupe consecutive repeats
-      return { visitedTiles: [...state.visitedTiles, id] };
+      const from = state.draggingSlot;
+      if (from === null || from === slot) return { draggingSlot: null };
+
+      const next = [...state.shuffledTiles];
+      [next[from], next[slot]] = [next[slot], next[from]];
+      return { shuffledTiles: next, draggingSlot: null };
     }),
+
+  clearDragging: () => set({ draggingSlot: null }),
 
   reset: () => set({ ...initialData }),
 }));

@@ -27,5 +27,14 @@ export type MultiHandHandedness = Category[][];
 /** The fixed number of landmarks MediaPipe reports per hand. */
 export const HAND_LANDMARK_COUNT = 21 as const;
 
+/** Index of the wrist landmark. */
+export const WRIST = 0 as const;
+
+/** Index of the thumb tip within a hand's landmark array. */
+export const THUMB_TIP = 4 as const;
+
 /** Index of the index-finger tip within a hand's landmark array. */
 export const INDEX_FINGER_TIP = 8 as const;
+
+/** Index of the middle-finger MCP joint, used as a hand-scale reference. */
+export const MIDDLE_FINGER_MCP = 9 as const;

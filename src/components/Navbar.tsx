@@ -2,9 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { ArrowRight, Menu, ScanFace, Star, Sun, X } from "lucide-react";
+import { ArrowRight, Menu, ScanFace, Star, X } from "lucide-react";
 
 import { GithubIcon } from "@/components/site/icons";
+import { GITHUB_REPO, GITHUB_REPO_URL } from "@/constants";
 import { cn } from "@/lib/utils";
 
 const LINKS = [
@@ -14,15 +15,39 @@ const LINKS = [
   { label: "Pricing", href: "#pricing" },
 ];
 
+/** Compact star count, e.g. 1240 → "1.2k". */
+function formatStars(n: number): string {
+  return n >= 1000 ? `${(n / 1000).toFixed(1).replace(/\.0$/, "")}k` : `${n}`;
+}
+
 export function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
+  const [stars, setStars] = useState<number | null>(null);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 12);
     onScroll();
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  // Fetch the real star count; only render a number when there is one.
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`https://api.github.com/repos/${GITHUB_REPO}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!cancelled && data && typeof data.stargazers_count === "number") {
+          setStars(data.stargazers_count);
+        }
+      })
+      .catch(() => {
+        /* offline / rate-limited — just show the icon */
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   return (
@@ -63,7 +88,7 @@ export function Navbar() {
             </a>
           ))}
           <a
-            href="https://github.com"
+            href={GITHUB_REPO_URL}
             target="_blank"
             rel="noreferrer"
             className="flex items-center gap-1.5 text-sm text-zinc-400 transition-colors hover:text-white"
@@ -76,21 +101,16 @@ export function Navbar() {
         {/* Actions */}
         <div className="flex items-center gap-2">
           <a
-            href="https://github.com"
+            href={GITHUB_REPO_URL}
             target="_blank"
             rel="noreferrer"
             className="hidden items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm text-zinc-300 transition-colors hover:bg-white/10 sm:flex"
           >
             <Star className="h-3.5 w-3.5 text-[#00dbe9]" />
-            <span className="font-medium">2.4k</span>
+            {stars !== null && stars > 0 && (
+              <span className="font-medium">{formatStars(stars)}</span>
+            )}
           </a>
-          <button
-            type="button"
-            aria-label="Toggle theme"
-            className="hidden h-9 w-9 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-zinc-300 transition-colors hover:bg-white/10 sm:flex"
-          >
-            <Sun className="h-4 w-4" />
-          </button>
           <a
             href="#demo"
             className="group flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-[#00dbe9] to-[#22d3ee] px-4 py-2 text-sm font-semibold text-black shadow-[0_0_24px_-6px_rgba(0,219,233,0.8)] transition-transform hover:scale-[1.03]"
@@ -123,6 +143,15 @@ export function Navbar() {
                 {link.label}
               </a>
             ))}
+            <a
+              href={GITHUB_REPO_URL}
+              target="_blank"
+              rel="noreferrer"
+              className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-zinc-300 hover:bg-white/5"
+            >
+              <GithubIcon className="h-4 w-4" />
+              Github
+            </a>
           </div>
         </div>
       )}

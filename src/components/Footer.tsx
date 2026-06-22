@@ -1,6 +1,7 @@
 import { ScanFace } from "lucide-react";
 
 import { GithubIcon } from "@/components/site/icons";
+import { GITHUB_REPO_URL } from "@/constants";
 
 const LINKS = [
   { label: "Privacy", href: "#" },
@@ -40,7 +41,7 @@ export function Footer() {
               </a>
             ))}
             <a
-              href="https://github.com"
+              href={GITHUB_REPO_URL}
               target="_blank"
               rel="noreferrer"
               aria-label="GitHub"

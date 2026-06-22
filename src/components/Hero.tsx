@@ -6,7 +6,20 @@ import { ArrowRight, BookOpen } from "lucide-react";
 import { VerificationPreview } from "@/components/VerificationPreview";
 import { fadeUp, staggerContainer, staggerItem } from "@/lib/motion";
 
-const BADGES = ["Gesture Based", "AI Powered", "Privacy First", "No Text CAPTCHA"];
+const BADGES = [
+  "Gesture Based",
+  "Human Motion Verified",
+  "No Mouse Required",
+  "No Keyboard Required",
+  "Liveness Detection",
+  "Spatial Interaction",
+  "Privacy First",
+  "No Text CAPTCHA",
+  "Beyond Mouse & Keyboard",
+  "Physical Interaction Required",
+  "Bot Resistant",
+  "Spatial CAPTCHA",
+];
 
 export function Hero() {
   return (

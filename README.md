@@ -100,7 +100,6 @@ The landing page documents a proposed drop-in component API. This is a design ta
 ```tsx
 interface HumanCaptchaProps {
   siteKey: string;
-  difficulty?: "easy" | "medium" | "hard"; // 2×2, 3×3 or 4×4
   theme?: "dark" | "light";
   onSuccess?: (token: string) => void;
   onError?: (error: Error) => void;

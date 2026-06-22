@@ -33,7 +33,7 @@ const TIERS: Tier[] = [
     description: "For growing products in production.",
     features: [
       "100,000 verifications / mo",
-      "All difficulty levels",
+      "Customizable themes",
       "Priority support",
       "10 site keys",
       "Analytics dashboard",

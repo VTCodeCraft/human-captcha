@@ -14,7 +14,6 @@ interface Prop {
 
 const PROPS: Prop[] = [
   { name: "siteKey", type: "string", def: "—", description: "Your public site key (required)." },
-  { name: "difficulty", type: '"easy" | "medium" | "hard"', def: '"medium"', description: "Grid size: 2×2, 3×3 or 4×4." },
   { name: "theme", type: '"dark" | "light"', def: '"dark"', description: "Widget color theme." },
   { name: "onSuccess", type: "(token: string) => void", def: "—", description: "Called with a verification token on success." },
   { name: "onError", type: "(error: Error) => void", def: "—", description: "Called when verification fails." },
@@ -27,7 +26,6 @@ const PROPS: Prop[] = [
 
 const TS_EXAMPLE = `interface HumanCaptchaProps {
   siteKey: string;
-  difficulty?: "easy" | "medium" | "hard";
   theme?: "dark" | "light";
   onSuccess?: (token: string) => void;
   onError?: (error: Error) => void;
